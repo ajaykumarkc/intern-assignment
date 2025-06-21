@@ -9,7 +9,7 @@ A sophisticated food delivery application featuring a custom React bottom sheet 
 ## 📱 Demo Videos
 
 ### Desktop Experience
-[!Image](https://github.com/user-attachments/assets/798cefa4-625a-4ddd-8564-cf95251ff294)
+[![Desktop Demo](https://via.placeholder.com/400x800/1f2937/ffffff?text=Mobile+Demo+Video)](https://via.placeholder.com/400x800/1f2937/ffffff?text=Mobile+Demo+Video)
 
 ### Mobile Experience  
 [![Mobile Demo](https://via.placeholder.com/400x800/1f2937/ffffff?text=Mobile+Demo+Video)](https://via.placeholder.com/400x800/1f2937/ffffff?text=Mobile+Demo+Video)
