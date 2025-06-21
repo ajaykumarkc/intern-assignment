@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 
 const collapsedHeight = 400;
@@ -140,7 +139,7 @@ const FilterPopup = ({ isOpen, onClose, children, onReset, onApply }) => {
   }, [isAnimating, isDragging]);
 
 
-  const handleDragMove = useCallback((e) => {
+ const handleDragMove = useCallback((e) => {
     if (!isDragging) return;
     e.preventDefault();
 
@@ -150,10 +149,10 @@ const FilterPopup = ({ isOpen, onClose, children, onReset, onApply }) => {
     let newH = dragStartRef.current.initialHeight;
     let newB = dragStartRef.current.initialBottom;
 
-    const initialState = currentPopupStateRef.current;
+    const initialState = currentPopupStateRef.current; // Use ref
     const overdragFactor = 50; 
 
-    if (initialState === POPUP_STATE.CLOSED && isOpenRef.current) {
+    if (initialState === POPUP_STATE.CLOSED && isOpenRef.current) { // Use ref
         newB = dragStartRef.current.initialBottom + deltaY;
         newH = collapsedHeight;
         newB = Math.max(-collapsedHeight - overdragFactor, Math.min(overdragFactor, newB));
@@ -330,7 +329,7 @@ const handleDragEnd = useCallback(() => {
 
       <div
         ref={popupRef}
-        className="fixed left-0 right-0 bg-white rounded-t-3xl z-50 shadow-2xl border border-gray-200 flex flex-col"
+        className="fixed left-0 right-0 bg-gradient-to-b from-white to-gray-50 rounded-t-3xl z-50 shadow-2xl border border-gray-200 flex flex-col backdrop-blur-sm"
         style={{
           ...popupStyle,
           userSelect: isDragging ? 'none' : 'auto',
@@ -339,30 +338,52 @@ const handleDragEnd = useCallback(() => {
         }}
       >
         <div
-          className="flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing select-none"
+          className="flex justify-center pt-4 pb-3 cursor-grab active:cursor-grabbing select-none"
           onMouseDown={handleDragStart}
           onTouchStart={handleDragStart}
         >
-          <div className="w-12 h-1 bg-gray-300 rounded-full"></div>
+          <div className="w-16 h-1.5 bg-gradient-to-r from-gray-300 to-gray-400 rounded-full shadow-sm"></div>
         </div>
 
-        <div className="flex justify-between items-center px-6 py-4 border-b border-gray-200">
-          <h2 className="text-xl font-semibold text-gray-800">Filters</h2>
-          <button onClick={!isDragging ? handleCloseFromUI : undefined} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
-            <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+        <div className="flex justify-between items-center px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
+          <div className="flex items-center space-x-3">
+            <div className="w-8 h-8 bg-red-500 rounded-lg flex items-center justify-center">
+              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path>
+              </svg>
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-gray-800">Smart Filters</h2>
+              <p className="text-sm text-gray-500">Find your perfect meal</p>
+            </div>
+          </div>
+          <button 
+            onClick={!isDragging ? handleCloseFromUI : undefined} 
+            className="p-2.5 hover:bg-red-50 rounded-full transition-all duration-200 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-red-200"
+          >
+            <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
           </button>
         </div>
 
         {currentPopupStateRef.current !== POPUP_STATE.CLOSED && (
-          <div className="px-6 py-2 text-center border-b border-gray-200">
-            <button onClick={!isDragging ? handleToggleExpand : undefined} className="text-blue-600 hover:text-blue-800 font-semibold" disabled={isAnimating || isDragging} >
-              {currentPopupStateRef.current === POPUP_STATE.FULL_OPEN ? 'Show Fewer Filters' : 'Show More Filters'}
+          <div className="px-6 py-3 text-center border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50">
+            <button
+              onClick={!isDragging ? handleToggleExpand : undefined} 
+              className="text-blue-600 hover:text-blue-800 font-semibold text-sm flex items-center justify-center space-x-2 transition-all duration-200 hover:scale-105" 
+              disabled={isAnimating || isDragging}
+            >
+              <span>{currentPopupStateRef.current === POPUP_STATE.FULL_OPEN ? 'Show Fewer Filters' : 'Show More Filters'}</span>
+              <svg className={`w-4 h-4 transition-transform duration-200 ${currentPopupStateRef.current === POPUP_STATE.FULL_OPEN ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+              </svg>
             </button>
           </div>
         )}
 
         <div
-          className="flex-1 overflow-y-auto px-6 py-4"
+          className="flex-1 overflow-y-auto px-6 py-6 bg-gradient-to-b from-white to-gray-50"
           style={{
             height: `${contentMaxHeight}px`,
             overflowY: (currentPopupStateRef.current === POPUP_STATE.FULL_OPEN && !isDragging && !isAnimating) ? 'auto' : 'hidden',
@@ -371,21 +392,31 @@ const handleDragEnd = useCallback(() => {
           {children}
         </div>
 
-        <div className="px-6 py-4 border-t border-gray-200 bg-white">
-          <div className="flex space-x-3">
+        <div className="px-6 py-5 border-t border-gray-100 bg-gradient-to-r from-gray-50 to-white shadow-lg">
+          <div className="flex space-x-4">
             <button
               type="button"
-              className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-gray-400 transition-colors"
+              className="flex-1 px-6 py-3.5 border-2 border-gray-300 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:border-gray-400 transition-all duration-200 hover:scale-105"
               onClick={!isDragging ? onReset : undefined} 
             >
-              Reset
+              <div className="flex items-center justify-center space-x-2">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                <span>Reset</span>
+              </div>
             </button>
             <button
               type="button"
-              className="flex-1 px-4 py-2.5 bg-red-500 text-white font-semibold rounded-lg hover:bg-red-600 focus:outline-none focus:ring-1 focus:ring-red-500 transition-colors"
+              className="flex-1 px-6 py-3.5 bg-gradient-to-r from-red-500 to-red-600 text-white font-bold rounded-xl hover:from-red-600 hover:to-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-all duration-200 hover:scale-105 shadow-lg"
               onClick={!isDragging ? onApply : undefined} 
             >
-              Apply Filters
+              <div className="flex items-center justify-center space-x-2">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                </svg>
+                <span>Apply Filters</span>
+              </div>
             </button>
           </div>
         </div>
