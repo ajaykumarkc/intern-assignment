@@ -6,10 +6,7 @@ A sophisticated food delivery application featuring a custom React bottom sheet 
 
 **Deployed Application:** [FoodHub on AWS S3](http://my-food-delivery-app-ajay.s3-website-us-east-1.amazonaws.com/)
 
-## 📱 Demo Videos
-
-### Desktop Experience
-[![Desktop Demo](https://via.placeholder.com/400x800/1f2937/ffffff?text=Mobile+Demo+Video)](https://via.placeholder.com/400x800/1f2937/ffffff?text=Mobile+Demo+Video)
+## 📱 Demo Video
 
 ### Mobile Experience  
 [Mobile Demo](https://drive.google.com/file/d/130sBTUTcUg4kNxSU139DtaTQ-X8z4d_Y/view?usp=sharing)
