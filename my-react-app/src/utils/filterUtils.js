@@ -13,7 +13,7 @@ export const applyFilters = (items, filters) => {
   filtered = filtered.filter(item => item.price <= priceMax);
 
   if (selectedRating > 0) {
-    filtered = filtered.filter(item => Math.round(item.rating) >= selectedRating);
+    filtered = filtered.filter(item => Math.floor(item.rating) >= selectedRating);
   }
 
   if (selectedCuisines.length > 0) {
