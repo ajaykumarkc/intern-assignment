@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
 
-const collapsedHeight = 400; // State 1: Half-Open
-const expandedHeight = 600;  // State 2: Full-Open
-const animationDuration = 300; // ms
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 
-// Define states for clarity
+const collapsedHeight = 400;
+const expandedHeight = 600;
+const animationDuration = 300;
+
 const POPUP_STATE = {
   CLOSED: 'CLOSED',
   HALF_OPEN: 'HALF_OPEN',
@@ -13,136 +13,256 @@ const POPUP_STATE = {
 
 const FilterPopup = ({ isOpen, onClose, children }) => {
   const [currentPopupState, setCurrentPopupState] = useState(POPUP_STATE.CLOSED);
-  const [isAnimating, setIsAnimating] = useState(false); 
-
-  // Drag functionality states
+  const [isAnimating, setIsAnimating] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
-  const dragStartRef = useRef({ y: 0, initialHeight: 0 }); 
-  const currentHeightRef = useRef(collapsedHeight); 
+
+  const dragStartRef = useRef({ y: 0, initialHeight: 0, initialBottom: -collapsedHeight });
+  const currentHeightRef = useRef(collapsedHeight);
+  const currentBottomRef = useRef(-collapsedHeight);
   const popupRef = useRef(null);
+  const animationTimeoutRef = useRef(null);
 
-  // Determine current visual height based on state
-  const getTargetHeight = (state) => {
-    if (state === POPUP_STATE.FULL_OPEN) return expandedHeight;
-    if (state === POPUP_STATE.HALF_OPEN) return collapsedHeight;
-    return collapsedHeight; 
-  };
+  const isOpenRef = useRef(isOpen);
+  useEffect(() => { isOpenRef.current = isOpen; }, [isOpen]);
 
-  // Effect to handle isOpen prop changes (external control)
-  useEffect(() => {
-    if (isOpen) {
-      if (currentPopupState === POPUP_STATE.CLOSED) {
-        // Transition: 0 -> 1 (Closed to Half-Open)
-        setIsAnimating(true);
-        setCurrentPopupState(POPUP_STATE.HALF_OPEN);
-        currentHeightRef.current = collapsedHeight;
-        setTimeout(() => setIsAnimating(false), animationDuration);
-      }
-    } else {
-      if (currentPopupState !== POPUP_STATE.CLOSED) {
-        // Transition: 1 -> 0 or 2 -> 0 (Half-Open/Full-Open to Closed)
-        setIsAnimating(true);
-        // currentPopupState will be set to CLOSED after animation in onTransitionEnd or timeout
-        setTimeout(() => {
-          setCurrentPopupState(POPUP_STATE.CLOSED); // Visually hide
-          setIsAnimating(false);
-        }, animationDuration);
-      }
+  const currentPopupStateRef = useRef(currentPopupState);
+  useEffect(() => { currentPopupStateRef.current = currentPopupState; }, [currentPopupState]);
+
+  
+  const getTargetVisuals = useCallback((state, pIsOpen) => {
+    let targetH = collapsedHeight; 
+    if (state === POPUP_STATE.FULL_OPEN) {
+      targetH = expandedHeight;
     }
-  }, [isOpen]); 
+    if (state === POPUP_STATE.CLOSED && pIsOpen === false) { 
+        if (currentPopupStateRef.current === POPUP_STATE.FULL_OPEN) targetH = expandedHeight;
+        else if (currentPopupStateRef.current === POPUP_STATE.HALF_OPEN) targetH = collapsedHeight;
+    }
 
-  const handleSnapToState = (targetState) => {
-    if (isAnimating || currentPopupState === targetState) return;
+    const targetB = (state !== POPUP_STATE.CLOSED && pIsOpen) ? 0 : -targetH;
+    return { height: targetH, bottom: targetB };
+  }, []); 
 
-    setIsAnimating(true);
-    setCurrentPopupState(targetState);
-    currentHeightRef.current = getTargetHeight(targetState);
+  useEffect(() => {
+    return () => { if (animationTimeoutRef.current) clearTimeout(animationTimeoutRef.current); };
+  }, []);
 
-    setTimeout(() => {
+  const handleSnapToState = useCallback((targetState) => {
+    const visuals = getTargetVisuals(targetState, isOpenRef.current);
+
+    if (isAnimating && currentPopupStateRef.current === targetState) return; 
+    if (!isAnimating && !isDragging &&
+        currentPopupStateRef.current === targetState &&
+        Math.abs(currentBottomRef.current - visuals.bottom) < 2 && 
+        Math.abs(currentHeightRef.current - visuals.height) < 2) {
+      return; 
+    }
+
+    if (animationTimeoutRef.current) clearTimeout(animationTimeoutRef.current);
+
+    setIsAnimating(true);       
+    setCurrentPopupState(targetState); 
+    currentHeightRef.current = visuals.height;
+    currentBottomRef.current = visuals.bottom;
+
+    if (popupRef.current) {
+        popupRef.current.style.transition = `height ${animationDuration}ms ease-out, bottom ${animationDuration}ms ease-out`;
+    }
+
+    animationTimeoutRef.current = setTimeout(() => {
       setIsAnimating(false);
-      if (targetState === POPUP_STATE.CLOSED && isOpen) { 
+      if (targetState === POPUP_STATE.CLOSED && isOpenRef.current) {
         onClose();
       }
     }, animationDuration);
-  };
+  }, [getTargetVisuals, onClose, isAnimating, isDragging]);
 
-  const handleDragStart = (e) => {
-    if (isAnimating || currentPopupState === POPUP_STATE.CLOSED) return;
+  useEffect(() => {
+    if (animationTimeoutRef.current) clearTimeout(animationTimeoutRef.current);
 
-    e.preventDefault(); 
+    const visualsHalfOpen = getTargetVisuals(POPUP_STATE.HALF_OPEN, true);
+    const currentOpenStateForClose = currentPopupStateRef.current === POPUP_STATE.CLOSED ? POPUP_STATE.HALF_OPEN : currentPopupStateRef.current;
+    const visualsForClosing = getTargetVisuals(currentOpenStateForClose, false); 
+    const finalVisualsClosed = getTargetVisuals(POPUP_STATE.CLOSED, false); 
+
+    if (isOpen) {
+      if ((currentPopupStateRef.current === POPUP_STATE.CLOSED || currentBottomRef.current < -(collapsedHeight * 0.8)) && !isAnimating) {
+        setIsAnimating(true);
+        setCurrentPopupState(POPUP_STATE.HALF_OPEN);
+        currentHeightRef.current = visualsHalfOpen.height;
+        currentBottomRef.current = visualsHalfOpen.bottom;
+        animationTimeoutRef.current = setTimeout(() => setIsAnimating(false), animationDuration);
+      }
+    } else { 
+      if (currentPopupStateRef.current !== POPUP_STATE.CLOSED && !isAnimating) {
+        setIsAnimating(true);
+        currentHeightRef.current = visualsForClosing.height; 
+        currentBottomRef.current = visualsForClosing.bottom; 
+        animationTimeoutRef.current = setTimeout(() => {
+          setCurrentPopupState(POPUP_STATE.CLOSED); 
+          currentHeightRef.current = finalVisualsClosed.height; 
+          currentBottomRef.current = finalVisualsClosed.bottom; 
+          setIsAnimating(false);
+        }, animationDuration);
+      } else if (currentPopupStateRef.current !== POPUP_STATE.CLOSED && isAnimating) {
+         animationTimeoutRef.current = setTimeout(() => {
+            if (!isOpenRef.current) {
+                 setCurrentPopupState(POPUP_STATE.CLOSED);
+                 setIsAnimating(false);
+            }
+        }, animationDuration + 50);
+      }
+    }
+  }, [isOpen, getTargetVisuals]);
+
+  const handleDragStart = useCallback((e) => {
+    if ((currentPopupStateRef.current === POPUP_STATE.CLOSED && !isOpenRef.current) || isDragging) return;
+
+    if (animationTimeoutRef.current) {
+        clearTimeout(animationTimeoutRef.current);
+        setIsAnimating(false);
+    }
+    e.preventDefault();
     setIsDragging(true);
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-    dragStartRef.current = {
-      y: clientY,
-      initialHeight: currentHeightRef.current, 
-    };
-    if (popupRef.current) {
-      popupRef.current.style.transition = 'none'; 
-    }
-  };
 
-  const handleDragMove = (e) => {
+    let initialB, initialH;
+    if (popupRef.current) {
+        const styles = window.getComputedStyle(popupRef.current);
+        initialB = parseFloat(styles.bottom);
+        initialH = parseFloat(styles.height);
+    } else {
+        initialB = currentBottomRef.current;
+        initialH = currentHeightRef.current;
+    }
+    dragStartRef.current = { y: clientY, initialHeight: initialH, initialBottom: initialB };
+    if (popupRef.current) popupRef.current.style.transition = 'none';
+  }, [isAnimating, isDragging]);
+
+
+  const handleDragMove = useCallback((e) => {
     if (!isDragging) return;
     e.preventDefault();
 
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
     const deltaY = dragStartRef.current.y - clientY; 
 
-    let newHeight = dragStartRef.current.initialHeight + deltaY;
+    let newH = dragStartRef.current.initialHeight;
+    let newB = dragStartRef.current.initialBottom;
 
-    
-    if (currentPopupState === POPUP_STATE.HALF_OPEN) {
-     
-      newHeight = Math.max(collapsedHeight - 100, Math.min(expandedHeight, newHeight));
-    } else if (currentPopupState === POPUP_STATE.FULL_OPEN) {
-      
-      newHeight = Math.max(collapsedHeight - 100, Math.min(expandedHeight, newHeight));
+    const initialState = currentPopupStateRef.current;
+    const overdragFactor = 50; 
+
+    if (initialState === POPUP_STATE.CLOSED && isOpenRef.current) {
+        newB = dragStartRef.current.initialBottom + deltaY;
+        newH = collapsedHeight;
+        newB = Math.max(-collapsedHeight - overdragFactor, Math.min(overdragFactor, newB));
+    } else if (initialState === POPUP_STATE.HALF_OPEN) {
+        if (deltaY > 0) { 
+            newH = dragStartRef.current.initialHeight + deltaY;
+            newH = Math.min(expandedHeight + overdragFactor, newH);
+            newH = Math.max(collapsedHeight - overdragFactor / 2, newH);
+            newB = 0;
+        } else { 
+            newH = collapsedHeight;
+            newB = dragStartRef.current.initialBottom + deltaY;
+            newB = Math.max(-collapsedHeight - overdragFactor, Math.min(0, newB));
+        }
+    } else if (initialState === POPUP_STATE.FULL_OPEN) {
+        newH = dragStartRef.current.initialHeight + deltaY; 
+        newB = 0; 
+
+        if (newH < collapsedHeight && deltaY < 0) { 
+            const dragPastCollapsed = (dragStartRef.current.initialHeight - collapsedHeight) + deltaY; 
+            newB = dragPastCollapsed; 
+            newH = collapsedHeight; 
+            newB = Math.max(-(Math.max(collapsedHeight,expandedHeight) + overdragFactor), newB); 
+        } else {
+             newH = Math.max(collapsedHeight - overdragFactor, newH); 
+        }
+         newH = Math.min(expandedHeight + overdragFactor, newH); 
     }
-    
-    currentHeightRef.current = newHeight;
+
+    currentHeightRef.current = newH;
+    currentBottomRef.current = newB;
+
     if (popupRef.current) {
-      
-      popupRef.current.style.height = `${newHeight}px`;
+      popupRef.current.style.height = `${newH}px`;
+      popupRef.current.style.bottom = `${newB}px`;
     }
-  };
+  }, [isDragging]);
 
-  const handleDragEnd = () => {
+
+
+
+const handleDragEnd = useCallback(() => {
     if (!isDragging) return;
     setIsDragging(false);
 
-    const currentActualHeight = currentHeightRef.current;
-    const initialDragState = currentPopupState; 
+    const currentH = currentHeightRef.current;
+    const currentB = currentBottomRef.current;
+    const initialDragState = currentPopupStateRef.current;
+
+    const snapBiasToOpen = 0.25; 
+    const snapBiasToClose = 0.35; 
+
+    const diffHeight = expandedHeight - collapsedHeight;
+
+    const halfToFullThresholdH = collapsedHeight + diffHeight * (0.5 - snapBiasToClose); 
+    const fullToHalfThresholdH = expandedHeight - diffHeight * (0.5 - snapBiasToClose); 
+
+    
+    const openFromClosedThresholdB = -collapsedHeight * (1 - (0.5 + snapBiasToOpen)); 
+
+    const closeThresholdB = -collapsedHeight * (0.5 - snapBiasToClose);
+
+    const closeThresholdAbsoluteH = collapsedHeight * 0.5; 
 
 
-    if (initialDragState === POPUP_STATE.HALF_OPEN) {
-      if (currentActualHeight > collapsedHeight + (expandedHeight - collapsedHeight) / 2) {
-        handleSnapToState(POPUP_STATE.FULL_OPEN); // Dragged up enough to expand
-      } else if (currentActualHeight < collapsedHeight - 50) { 
-        handleSnapToState(POPUP_STATE.CLOSED);
-      } else {
-        handleSnapToState(POPUP_STATE.HALF_OPEN); // Snap back to half
-      }
-    } else if (initialDragState === POPUP_STATE.FULL_OPEN) {
-      if (currentActualHeight < expandedHeight - (expandedHeight - collapsedHeight) / 2) {
-         if (currentActualHeight < collapsedHeight - 50) { 
+    if (initialDragState === POPUP_STATE.CLOSED) {
+        if (isOpenRef.current) { 
+            if (currentB > openFromClosedThresholdB) {
+                handleSnapToState(POPUP_STATE.HALF_OPEN);
+            } else {
+                handleSnapToState(POPUP_STATE.CLOSED);
+            }
+        } else { 
             handleSnapToState(POPUP_STATE.CLOSED);
-        } else {
+        }
+    } else if (initialDragState === POPUP_STATE.HALF_OPEN) {
+        if (currentB < closeThresholdB || currentH < closeThresholdAbsoluteH) {
+            handleSnapToState(POPUP_STATE.CLOSED);
+        } else if (currentH > halfToFullThresholdH && currentB >= -25) { 
+            handleSnapToState(POPUP_STATE.FULL_OPEN);
+        } else { 
             handleSnapToState(POPUP_STATE.HALF_OPEN);
         }
-      } else {
-        handleSnapToState(POPUP_STATE.FULL_OPEN); 
-      }
+    } else if (initialDragState === POPUP_STATE.FULL_OPEN) {
+        if (currentB < closeThresholdB || currentH < closeThresholdAbsoluteH) {
+             handleSnapToState(POPUP_STATE.CLOSED);
+        } else if (currentH < fullToHalfThresholdH && currentB >= -25) { 
+            handleSnapToState(POPUP_STATE.HALF_OPEN);
+        } else { 
+            handleSnapToState(POPUP_STATE.FULL_OPEN);
+        }
+    } else {
+        handleSnapToState(isOpenRef.current ? POPUP_STATE.HALF_OPEN : POPUP_STATE.CLOSED);
     }
-  };
-  
-  // Add global event listeners for dragging
+  }, [isDragging, handleSnapToState]); 
+
+
   useEffect(() => {
+    const currentPopup = popupRef.current;
     if (isDragging) {
       document.addEventListener('mousemove', handleDragMove);
       document.addEventListener('mouseup', handleDragEnd);
       document.addEventListener('touchmove', handleDragMove, { passive: false });
       document.addEventListener('touchend', handleDragEnd);
-      document.body.style.overflow = 'hidden'; 
+      document.body.style.overflow = 'hidden';
+    } else {
+        if (currentPopup && currentPopup.style.transition === 'none') {
+             currentPopup.style.transition = `height ${animationDuration}ms ease-out, bottom ${animationDuration}ms ease-out`;
+        }
     }
     return () => {
       document.removeEventListener('mousemove', handleDragMove);
@@ -151,82 +271,75 @@ const FilterPopup = ({ isOpen, onClose, children }) => {
       document.removeEventListener('touchend', handleDragEnd);
       document.body.style.overflow = 'auto';
     };
-  }, [isDragging]);
+  }, [isDragging, handleDragMove, handleDragEnd]);
 
 
-  const handleToggleExpand = () => {
-    if (currentPopupState === POPUP_STATE.HALF_OPEN) {
-      handleSnapToState(POPUP_STATE.FULL_OPEN);
-    } else if (currentPopupState === POPUP_STATE.FULL_OPEN) {
-      handleSnapToState(POPUP_STATE.HALF_OPEN);
-    }
-  };
+  const handleToggleExpand = useCallback(() => {
+    if (isAnimating || isDragging) return;
+    if (currentPopupStateRef.current === POPUP_STATE.HALF_OPEN) handleSnapToState(POPUP_STATE.FULL_OPEN);
+    else if (currentPopupStateRef.current === POPUP_STATE.FULL_OPEN) handleSnapToState(POPUP_STATE.HALF_OPEN);
+  }, [isAnimating, isDragging, handleSnapToState]);
 
-  const handleCloseFromUI = () => {
-    if (isOpen) { 
-        onClose(); 
-    }
-  };
-
-
+  const handleCloseFromUI = useCallback(() => {
+    if ((isAnimating && currentPopupStateRef.current === POPUP_STATE.CLOSED) || isDragging) return;
+    if (isOpenRef.current) onClose();
+  }, [isAnimating, isDragging, onClose]);
   
   let popupStyle = {};
-  const targetHeightForState = getTargetHeight(currentPopupState);
+  const { height: targetStyleH, bottom: targetStyleB } = getTargetVisuals(currentPopupStateRef.current, isOpenRef.current);
 
-  if (currentPopupState === POPUP_STATE.CLOSED && !isOpen && !isAnimating) { 
+
+  if (currentPopupStateRef.current === POPUP_STATE.CLOSED && !isOpenRef.current && !isAnimating) {
     return null;
   }
 
   if (isDragging) {
     popupStyle = {
       height: `${currentHeightRef.current}px`,
-      bottom: `0px`,
+      bottom: `${currentBottomRef.current}px`,
       transition: 'none',
     };
   } else {
     popupStyle = {
-      height: `${targetHeightForState}px`,
-      bottom: (currentPopupState !== POPUP_STATE.CLOSED && isOpen) ? `0px` : `-${targetHeightForState}px`,
+      height: `${targetStyleH}px`,
+      bottom: `${targetStyleB}px`,
       transition: `height ${animationDuration}ms ease-out, bottom ${animationDuration}ms ease-out`,
     };
   }
   
-  
-  const buttonAreaHeight = 80; 
-  const headerAreaHeight = 60; 
-  const handleAndExpandButtonHeight = 60; 
+  const buttonAreaHeight = 80;
+  const headerAreaHeight = 60;
+  const handleAndExpandButtonHeight = 60;
   const nonContentHeight = buttonAreaHeight + headerAreaHeight + handleAndExpandButtonHeight;
   
-  let currentDisplayHeight = isDragging ? currentHeightRef.current : targetHeightForState;
-  if (!isOpen && currentPopupState === POPUP_STATE.CLOSED && isAnimating) {
-    currentDisplayHeight = collapsedHeight; 
-  }
+  let effectiveDisplayHeight = parseFloat(popupStyle.height);
+  const contentMaxHeight = Math.max(0, effectiveDisplayHeight - nonContentHeight);
 
-  const contentMaxHeight = Math.max(0, currentDisplayHeight - nonContentHeight);
+  const showBackdrop = (isOpenRef.current && currentPopupStateRef.current !== POPUP_STATE.CLOSED && currentBottomRef.current > -collapsedHeight + 50) ||
+                       (isAnimating && isOpenRef.current && currentPopupStateRef.current !== POPUP_STATE.CLOSED && getTargetVisuals(currentPopupStateRef.current, true).bottom > -50 );
+
 
   return (
     <>
-      {/* Backdrop */}
-      {isOpen && ( 
+      {showBackdrop && (
         <div
           className={`fixed inset-0 bg-black z-40 transition-opacity duration-${animationDuration} ${
-            (currentPopupState !== POPUP_STATE.CLOSED && isOpen) ? 'bg-opacity-50' : 'bg-opacity-0 pointer-events-none'
+             (currentPopupStateRef.current !== POPUP_STATE.CLOSED && isOpenRef.current && currentBottomRef.current > -50 ) ? 'bg-opacity-50' : 'bg-opacity-0 pointer-events-none'
           }`}
-          onClick={handleCloseFromUI}
+          onClick={!isDragging ? handleCloseFromUI : undefined}
         />
       )}
 
-      {/* Popup */}
       <div
         ref={popupRef}
         className="fixed left-0 right-0 bg-white rounded-t-3xl z-50 shadow-2xl border border-gray-200 flex flex-col"
         style={{
           ...popupStyle,
           userSelect: isDragging ? 'none' : 'auto',
-          willChange: 'height, bottom', 
+          willChange: 'height, bottom',
+          visibility: (currentPopupStateRef.current === POPUP_STATE.CLOSED && !isOpenRef.current && !isAnimating && currentBottomRef.current < -collapsedHeight * 0.95) ? 'hidden' : 'visible',
         }}
       >
-        {/* Draggable Handle */}
         <div
           className="flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing select-none"
           onMouseDown={handleDragStart}
@@ -235,57 +348,37 @@ const FilterPopup = ({ isOpen, onClose, children }) => {
           <div className="w-12 h-1 bg-gray-300 rounded-full"></div>
         </div>
 
-        {/* Header */}
         <div className="flex justify-between items-center px-6 py-4 border-b border-gray-200">
           <h2 className="text-xl font-semibold text-gray-800">Filters</h2>
-          <button
-            onClick={handleCloseFromUI}
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-          >
-            <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
+          <button onClick={!isDragging ? handleCloseFromUI : undefined} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+            <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
         </div>
 
-        {/* Expand/Collapse Button (only visible if not closed) */}
-        {currentPopupState !== POPUP_STATE.CLOSED && (
+        {currentPopupStateRef.current !== POPUP_STATE.CLOSED && (
           <div className="px-6 py-2 text-center border-b border-gray-200">
-            <button
-              onClick={handleToggleExpand}
-              className="text-blue-600 hover:text-blue-800 font-semibold"
-              disabled={isAnimating}
-            >
-              {currentPopupState === POPUP_STATE.FULL_OPEN ? 'Show Fewer Filters' : 'Show More Filters'}
+            <button onClick={!isDragging ? handleToggleExpand : undefined} className="text-blue-600 hover:text-blue-800 font-semibold" disabled={isAnimating || isDragging} >
+              {currentPopupStateRef.current === POPUP_STATE.FULL_OPEN ? 'Show Fewer Filters' : 'Show More Filters'}
             </button>
           </div>
         )}
 
-        {/* Scrollable Content */}
         <div
           className="flex-1 overflow-y-auto px-6 py-4"
           style={{
             height: `${contentMaxHeight}px`,
-            overflowY: (currentPopupState === POPUP_STATE.FULL_OPEN && !isDragging && !isAnimating) ? 'auto' : 'hidden',
+            overflowY: (currentPopupStateRef.current === POPUP_STATE.FULL_OPEN && !isDragging && !isAnimating) ? 'auto' : 'hidden',
           }}
         >
           {children}
         </div>
 
-        {/* Fixed Action Buttons at Bottom */}
         <div className="px-6 py-4 border-t border-gray-200 bg-white">
           <div className="flex space-x-3">
-            <button
-              type="button"
-              className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-              onClick={handleCloseFromUI} 
-            >
+            <button type="button" className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors" onClick={!isDragging ? handleCloseFromUI : undefined} >
               Reset
             </button>
-            <button
-              type="button"
-              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
+            <button type="button" className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors" >
               Apply
             </button>
           </div>
