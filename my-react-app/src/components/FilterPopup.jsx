@@ -11,7 +11,7 @@ const POPUP_STATE = {
   FULL_OPEN: 'FULL_OPEN',
 };
 
-const FilterPopup = ({ isOpen, onClose, children }) => {
+const FilterPopup = ({ isOpen, onClose, children, onReset, onApply }) => {
   const [currentPopupState, setCurrentPopupState] = useState(POPUP_STATE.CLOSED);
   const [isAnimating, setIsAnimating] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
@@ -191,8 +191,6 @@ const FilterPopup = ({ isOpen, onClose, children }) => {
       popupRef.current.style.bottom = `${newB}px`;
     }
   }, [isDragging]);
-
-
 
 
 const handleDragEnd = useCallback(() => {
@@ -375,11 +373,19 @@ const handleDragEnd = useCallback(() => {
 
         <div className="px-6 py-4 border-t border-gray-200 bg-white">
           <div className="flex space-x-3">
-            <button type="button" className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors" onClick={!isDragging ? handleCloseFromUI : undefined} >
+            <button
+              type="button"
+              className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-gray-400 transition-colors"
+              onClick={!isDragging ? onReset : undefined} 
+            >
               Reset
             </button>
-            <button type="button" className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors" >
-              Apply
+            <button
+              type="button"
+              className="flex-1 px-4 py-2.5 bg-red-500 text-white font-semibold rounded-lg hover:bg-red-600 focus:outline-none focus:ring-1 focus:ring-red-500 transition-colors"
+              onClick={!isDragging ? onApply : undefined} 
+            >
+              Apply Filters
             </button>
           </div>
         </div>

@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "rc-slider": "^11.1.8",
+    "react-simple-star-rating": "^5.1.7"
+  }
+}

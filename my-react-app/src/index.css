@@ -1,1 +1,5 @@
 @import "tailwindcss";
+/* In your global CSS file */
+.my-star-rating-container > span { /* Assuming the library wraps stars in spans */
+  display: inline-flex !important; /* Or whatever display makes them horizontal */
+}
