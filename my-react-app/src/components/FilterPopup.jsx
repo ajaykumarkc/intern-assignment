@@ -81,6 +81,23 @@ const FilterPopup = ({ isOpen, onClose, children, onReset, onApply }) => {
     };
   }, [isOpen]);
 
+  // Add keyboard event listener for Esc key
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('keydown', handleKeyDown);
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen, onClose]);
+
   const handleSnapToState = useCallback((targetState) => {
     const visuals = getTargetVisuals(targetState, isOpenRef.current);
 
