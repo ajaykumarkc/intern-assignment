@@ -220,4 +220,4 @@ This project is created for educational and demonstration purposes.
 
 ---
 
-**Built with ❤️ using React, Vite, and Tailwind CSS**
+**Built using React, Vite, and Tailwind CSS**
